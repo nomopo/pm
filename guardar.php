@@ -3,7 +3,6 @@ ini_set("display_errors", 1);
 ini_set("display_startup_errors", 1);
 error_reporting(E_ALL);
 
-// Configuración de la base de datos
 $host = "localhost";
 $dbname = "pm";
 $user = "root";
@@ -26,64 +25,50 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             $pdo->beginTransaction();
 
-            // Debugging message for JSON content
-            error_log("Data received for insertion: " . print_r($data, true));
-
-            // Insertar los datos del cliente
-            $stmt = $pdo->prepare(
-                "INSERT INTO clientes (tipo, nombreE, cif, direccionE, poblacionE, codigopostalE, provinciaE, telefonoE, emailE, contactoE, observacionesE) VALUES (:tipo, :nombreE, :cif, :direccionE, :poblacionE, :codigopostalE, :provinciaE, :telefonoE, :emailE, :contactoE, :observacionesE)"
-            );
+            // Insertar cliente
+            $stmt = $pdo->prepare("INSERT INTO clientes (tipo, nombreE, cif, direccionE, poblacionE, codigopostalE, provinciaE, telefonoE, emailE, contactoE, observacionesE)
+                                 VALUES (:tipo, :nombreE, :cif, :direccionE, :poblacionE, :codigopostalE, :provinciaE, :telefonoE, :emailE, :contactoE, :observacionesE)");
             $stmt->execute([
-                ":tipo" => $data["cliente"]["tipo"],
-                ":nombreE" => $data["cliente"]["nombreE"],
-                ":cif" => $data["cliente"]["cif"],
-                ":direccionE" => $data["cliente"]["direccionE"],
-                ":poblacionE" => $data["cliente"]["poblacionE"],
-                ":codigopostalE" => $data["cliente"]["codigopostalE"],
-                ":provinciaE" => $data["cliente"]["provinciaE"],
-                ":telefonoE" => $data["cliente"]["telefonoE"],
-                ":emailE" => $data["cliente"]["emailE"],
-                ":contactoE" => $data["cliente"]["contactoE"],
-                ":observacionesE" => $data["cliente"]["observacionesE"],
+                ":tipo" => $data["client"]["tipo"],
+                ":nombreE" => $data["client"]["nombreE"],
+                ":cif" => $data["client"]["cif"],
+                ":direccionE" => $data["client"]["direccionE"],
+                ":poblacionE" => $data["client"]["poblacionE"],
+                ":codigopostalE" => $data["client"]["codigopostalE"],
+                ":provinciaE" => $data["client"]["provinciaE"],
+                ":telefonoE" => $data["client"]["telefonoE"],
+                ":emailE" => $data["client"]["emailE"],
+                ":contactoE" => $data["client"]["contactoE"],
+                ":observacionesE" => $data["client"]["observacionesE"],
             ]);
-            $cliente_id = $pdo->lastInsertId();
-            error_log(
-                "Client data inserted successfully with ID: " . $cliente_id
-            );
+            $clientId = $pdo->lastInsertId();
 
-            // Insertar los datos del proyecto
-            $stmt = $pdo->prepare(
-                "INSERT INTO proyectos (id_cliente, direccion, cpostal, poblacion, provincia, tipoactividad, observaciones) VALUES (:cliente_id, :direccion, :cpostal, :poblacion, :provincia, :tipoactividad, :observaciones)"
-            );
+            // Insertar proyecto (ahora incluyendo la firma)
+            $stmt = $pdo->prepare("INSERT INTO proyectos (id_cliente, direccion, cpostal, poblacion, provincia, tipoactividad, observaciones, firma)
+                                 VALUES (:client_id, :direction, :cpostal, :poblacion, :provincia, :tipoactividad, :observaciones, :firma)");
             $stmt->execute([
-                ":cliente_id" => $cliente_id,
-                ":direccion" => $data["proyecto"]["direccion"],
-                ":cpostal" => $data["proyecto"]["cpostal"],
-                ":poblacion" => $data["proyecto"]["poblacion"],
-                ":provincia" => $data["proyecto"]["poblacion"],
-                ":tipoactividad" => $data["proyecto"]["tipoactividad"],
-                ":observaciones" => $data["proyecto"]["observaciones"],
+                ":client_id" => $clientId,
+                ":direction" => $data["project"]["direccion"],
+                ":cpostal" => $data["project"]["cpostal"],
+                ":poblacion" => $data["project"]["poblacion"],
+                ":provincia" => $data["project"]["provincia"],
+                ":tipoactividad" => $data["project"]["tipoactividad"],
+                ":observaciones" => $data["project"]["observaciones"],
+                ":firma" => $data["signature"],
             ]);
-            $proyecto_id = $pdo->lastInsertId();
-            error_log(
-                "Project data inserted successfully with ID: " . $proyecto_id
-            );
+            $projectId = $pdo->lastInsertId();
 
-            // Insertar los datos del presupuesto
-            $stmt = $pdo->prepare(
-                "INSERT INTO presupuestos (id_cliente, id_proyecto, fecha, objetivo) VALUES (:cliente_id, :proyecto_id, :fecha, :objetivo)"
-            );
+            // Insertar presupuesto
+            $stmt = $pdo->prepare("INSERT INTO presupuestos (id_cliente, id_proyecto, fecha, objetivo)
+                                 VALUES (:client_id, :project_id, :fecha, :objetivo)");
             $stmt->execute([
-                ":cliente_id" => $cliente_id,
-                ":proyecto_id" => $proyecto_id,
-                ":fecha" => $data["presupuesto"]["fecha"],
-                ":objetivo" => $data["presupuesto"]["objetivo"],
+                ":client_id" => $clientId,
+                ":project_id" => $projectId,
+                ":fecha" => $data["budget"]["fecha"],
+                ":objetivo" => $data["budget"]["objetivo"],
             ]);
-            error_log("Budget data inserted successfully.");
 
-            // Confirmar la transacción
             $pdo->commit();
-
             echo json_encode([
                 "status" => "success",
                 "message" => "Datos guardados correctamente",
@@ -91,16 +76,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } catch (PDOException $e) {
             $pdo->rollBack();
             http_response_code(500);
-            error_log("Error in transaction: " . $e->getMessage());
             echo json_encode([
                 "status" => "error",
-                "message" => "Error al guardar los datos",
-                "error" => $e->getMessage(),
+                "message" => $e->getMessage(),
             ]);
         }
     } else {
         http_response_code(400);
-        error_log("Invalid JSON data received: " . $json);
         echo json_encode([
             "status" => "error",
             "message" => "Datos JSON no válidos",
@@ -108,7 +90,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 } else {
     http_response_code(405);
-    error_log("Invalid request method: " . $_SERVER["REQUEST_METHOD"]);
     echo json_encode(["status" => "error", "message" => "Método no permitido"]);
 }
 ?>

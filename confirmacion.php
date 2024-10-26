@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Confirmación</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #signature-pad {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            touch-action: none;
+            width: 100%;
+            height: 200px;
+            background-color: white;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-4">
@@ -35,6 +45,18 @@
             <div class="card-body" id="presupuestoResumen"></div>
         </div>
 
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>Firma</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="signature-pad"></canvas>
+                <div class="mt-2">
+                    <button type="button" class="btn btn-secondary btn-sm" id="clear-signature">Borrar Firma</button>
+                </div>
+            </div>
+        </div>
+
         <div class="row mt-4">
             <div class="col-12">
                 <button type="button" class="btn btn-secondary me-2" onclick="history.back()">Anterior</button>
@@ -44,12 +66,36 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.5/dist/signature_pad.umd.min.js"></script>
     <script>
+        let signaturePad;
+
         window.onload = function() {
+            // Inicializar el pad de firma
+            const canvas = document.getElementById('signature-pad');
+            signaturePad = new SignaturePad(canvas, {
+                backgroundColor: 'rgb(255, 255, 255)',
+                penColor: 'rgb(0, 0, 0)'
+            });
+
+            // Ajustar el tamaño del canvas
+            function resizeCanvas() {
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext("2d").scale(ratio, ratio);
+                signaturePad.clear();
+            }
+
+            window.addEventListener("resize", resizeCanvas);
+            resizeCanvas();
+
+            // Cargar datos del localStorage
             const clienteData = JSON.parse(localStorage.getItem('clienteData'));
             const proyectoData = JSON.parse(localStorage.getItem('proyectoData'));
             const presupuestoData = JSON.parse(localStorage.getItem('presupuestoData'));
 
+            // Mostrar resumen de cliente
             document.getElementById('clienteResumen').innerHTML = `
                 <p><strong>Tipo:</strong> ${clienteData.tipo}</p>
                 <p><strong>Nombre/Razón Social:</strong> ${clienteData.nombreE}</p>
@@ -64,6 +110,7 @@
                 <p><strong>Observaciones:</strong> ${clienteData.observacionesE}</p>
             `;
 
+            // Mostrar resumen de proyecto
             document.getElementById('proyectoResumen').innerHTML = `
                 <p><strong>Dirección:</strong> ${proyectoData.direccion}</p>
                 <p><strong>Código Postal:</strong> ${proyectoData.cpostal}</p>
@@ -73,17 +120,30 @@
                 <p><strong>Observaciones:</strong> ${proyectoData.observaciones}</p>
             `;
 
+            // Mostrar resumen de presupuesto
             document.getElementById('presupuestoResumen').innerHTML = `
                 <p><strong>Fecha:</strong> ${presupuestoData.fecha}</p>
                 <p><strong>Objetivo:</strong> ${presupuestoData.objetivo}</p>
             `;
-        }
+        };
 
+        // Limpiar firma
+        document.getElementById('clear-signature').addEventListener('click', function() {
+            signaturePad.clear();
+        });
+
+        // Función para confirmar y enviar
         function confirmarTodo() {
+            if (signaturePad.isEmpty()) {
+                alert('Por favor, añada su firma antes de continuar.');
+                return;
+            }
+
             const allData = {
-                cliente: JSON.parse(localStorage.getItem('clienteData')),
-                proyecto: JSON.parse(localStorage.getItem('proyectoData')),
-                presupuesto: JSON.parse(localStorage.getItem('presupuestoData'))
+                client: JSON.parse(localStorage.getItem('clienteData')),
+                project: JSON.parse(localStorage.getItem('proyectoData')),
+                budget: JSON.parse(localStorage.getItem('presupuestoData')),
+                signature: signaturePad.toDataURL()
             };
 
             fetch('guardar.php', {
@@ -98,6 +158,7 @@
                 if (data.status === 'success') {
                     alert('Datos guardados correctamente');
                     localStorage.clear();
+                    window.location.href = 'firma.php';
                 } else {
                     alert('Error al guardar: ' + data.message);
                 }
