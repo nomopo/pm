@@ -158,7 +158,20 @@
                 if (data.status === 'success') {
                     alert('Datos guardados correctamente');
                     localStorage.clear();
-                    window.location.href = 'firma.php';
+                    
+                    // Crear un formulario y enviarlo
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'firma.php';
+
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'data';
+                    input.value = JSON.stringify(allData);
+
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    form.submit();
                 } else {
                     alert('Error al guardar: ' + data.message);
                 }
